@@ -29,18 +29,7 @@ class TradepostUtil
 {    
 	private var m_swfRoot: MovieClip;
 	
-	private var m_openButton: MovieClip
-	private var m_sellButton: MovieClip
-	
-	private var m_Inventory:Inventory;
-	private var m_OpenShop:ShopInterface;
-	private var m_openBagsCommand:DistributedValue;
-	private var m_sellItemsCommand:DistributedValue;
-	private var m_OpenBagsValue:String;
-	private var m_itemSellCount:Number = 0;
-	private var m_itemsToSell:Array = [];
-	private var m_itemsToOpen:Array = [];
-	
+	var m_PromptSaleOriginal:Function;
 	
 	public static function main(swfRoot:MovieClip):Void 
 	{
@@ -62,7 +51,6 @@ class TradepostUtil
 		setTimeout(Delegate.create(this, AutoSearch), 200);
 	}
 	
-	var m_PromptSaleOriginal:Function;
 	function AutoSearch()
 	{
 		var buyView = _root.tradepost.m_Window.m_Content.m_ViewsContainer.m_BuyView;
