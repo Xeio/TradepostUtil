@@ -33,7 +33,7 @@ class TradepostUtil
 	var m_tradepostInventory:Inventory;
 	
 	var m_PromptSaleOriginal:Function;
-	var m_UpdateRightClickMenu:Function;
+	var m_UpdateRightClickMenuOriginal:Function;
 	
 	public static function main(swfRoot:MovieClip):Void 
 	{
@@ -64,13 +64,13 @@ class TradepostUtil
 		m_PromptSaleOriginal = Delegate.create(buyView, buyView.PromptSale);
 		buyView.PromptSale = Delegate.create(this, PromptSaleOverride);
 		
-		m_UpdateRightClickMenu = Delegate.create(buyView, buyView.UpdateRightClickMenu);
+		m_UpdateRightClickMenuOriginal = Delegate.create(buyView, buyView.UpdateRightClickMenu);
 		buyView.UpdateRightClickMenu = Delegate.create(this, UpdateRightClickMenuOverride);
 	}
 	
 	function UpdateRightClickMenuOverride(RightClickMode:Number, item:MCLItemInventoryItem, itemSlot:Number)
 	{
-		m_UpdateRightClickMenu(RightClickMode, item, itemSlot);
+		m_UpdateRightClickMenuOriginal(RightClickMode, item, itemSlot);
 		
 		var buyView = _root.tradepost.m_Window.m_Content.m_ViewsContainer.m_BuyView;
 		
