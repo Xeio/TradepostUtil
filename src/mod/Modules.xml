@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<Root>
+<Module  name = "TradepostUtil"
+	movie       = "TradepostUtil\TradepostUtil.swf"
+	flags       = "GMF_CFG_STORE_USER_CONFIG"
+	depth_layer = "Top"
+	sub_depth   = "2"
+	variable    = "TradepostUtil"
+	criteria    = "TradepostUtil &amp;&amp; tradepost_window &amp;&amp; !dressingRoom_window &amp;&amp; (guimode &amp; (GUIMODEFLAGS_INPLAY | GUIMODEFLAGS_ENABLEALLGUI))"
+	config_name = "TradepostUtil_Cfg"
+	/>
+</Root>
