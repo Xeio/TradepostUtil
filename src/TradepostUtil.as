@@ -1,39 +1,29 @@
 import com.Components.RightClickItem;
-import com.Components.RightClickMenu;
-import com.GameInterface.DistributedValue;
-import com.GameInterface.DressingRoom;
-import com.GameInterface.DressingRoomNode;
+import com.GameInterface.Chat;
 import com.GameInterface.InventoryItem;
 import com.GameInterface.Tradepost;
-import com.GameInterface.MailData;
-import com.GameInterface.ShopInterface;
-import com.GameInterface.ScryWidgets;
-import com.Utils.LDBFormat;
-import flash.geom.Point;
+import com.Utils.Text;
 import mx.utils.Delegate;
 import com.Utils.Archive;
 import com.Utils.ID32;
-import xeio.TradepostUtils;
-import com.GameInterface.Log;
-import com.GameInterface.LogBase;
 import com.Components.InventoryItemList.MCLItemInventoryItem;
 
-import com.GameInterface.Game.CharacterBase;
 import com.GameInterface.Inventory;
-import com.GameInterface.GroupFinder;
-import com.GameInterface.Playfield;
 import com.GameInterface.Game.Character;
-import com.GameInterface.Game.BuffData;
-import com.GameInterface.Spell;
 
 class TradepostUtil
 {    
 	private var m_swfRoot: MovieClip;
 	
+	static var ARCHIVE_NAMES:String = "PriceHistoryName";
+	static var ARCHIVE_VALUES:String = "PriceHistoryValue";
+	
 	var m_tradepostInventory:Inventory;
 	
 	var m_PromptSaleOriginal:Function;
 	var m_UpdateRightClickMenuOriginal:Function;
+	
+	var m_priceHistory:Array;
 	
 	public static function main(swfRoot:MovieClip):Void 
 	{
@@ -66,6 +56,20 @@ class TradepostUtil
 		
 		m_UpdateRightClickMenuOriginal = Delegate.create(buyView, buyView.UpdateRightClickMenu);
 		buyView.UpdateRightClickMenu = Delegate.create(this, UpdateRightClickMenuOverride);
+		
+		buyView.m_SellItemPromptWindow.SignalPromptResponse.Disconnect(buyView.SlotSellPromptResponse, buyView);
+		buyView.m_SellItemPromptWindow.SignalPromptResponse.Connect(SlotSellPromptResponse, this);
+	}
+	
+	function SlotSellPromptResponse(price:Number)
+	{
+		var buyView = _root.tradepost.m_Window.m_Content.m_ViewsContainer.m_BuyView;
+		
+		var currentInventory:Inventory = new Inventory(buyView.m_SellItemInventory);
+		var item:InventoryItem = currentInventory.GetItemAt(buyView.m_SellItemSlot);
+		m_priceHistory[item.m_Name] = price;
+		
+		buyView.SlotSellPromptResponse(price);
 	}
 	
 	function UpdateRightClickMenuOverride(RightClickMode:Number, item:MCLItemInventoryItem, itemSlot:Number)
@@ -76,13 +80,30 @@ class TradepostUtil
 		
 		if (RightClickMode == 1) //Right Click Sale
 		{
-			var dataProvider = buyView.m_RightClickMenu.dataProvider;
+			var newProvider:Array = new Array();
+			var dataProvider:Array = buyView.m_RightClickMenu.dataProvider;
+			
+			newProvider.push(dataProvider.shift());
+			
+			var inventoryItem:InventoryItem = m_tradepostInventory.GetItemAt(itemSlot);
+			var originalPrice = m_priceHistory[inventoryItem.m_Name];
+			if (originalPrice)
+			{
+				var option:RightClickItem = new RightClickItem("Price: " + Text.AddThousandsSeparator(originalPrice), true, RightClickItem.CENTER_ALIGN);
+				option.SignalItemClicked.Connect(SearchOptionClickEventHandler, this);
+				newProvider.push(option);
+			}
+			
+			while (dataProvider.length > 0)
+			{
+				newProvider.push(dataProvider.shift());
+			}
 			
 			var option:RightClickItem = new RightClickItem("Price Check", false, RightClickItem.LEFT_ALIGN);
 			option.SignalItemClicked.Connect(SearchOptionClickEventHandler, this);
-			dataProvider.push(option);
+			newProvider.push(option);
 			
-			buyView.m_RightClickMenu.dataProvider = dataProvider;
+			buyView.m_RightClickMenu.dataProvider = newProvider;
 		}
 	}
 	
@@ -143,5 +164,30 @@ class TradepostUtil
 				dropdown.selectedIndex = i;
 			}
 		}
+	}
+	
+	public function Activate(config: Archive)
+	{
+		var names:Array = config.FindEntryArray(ARCHIVE_NAMES);
+		var prices:Array = config.FindEntryArray(ARCHIVE_VALUES);
+		m_priceHistory = new Array();
+		if (names && prices && names.length == prices.length)
+		{
+			for (var i = 0; i < names.length; i++ )
+			{
+				m_priceHistory[names[i]] = prices[i];
+			}
+		}
+	}
+	
+	public function Deactivate(): Archive
+	{
+		var archive: Archive = new Archive();
+		for (var i in m_priceHistory)
+		{
+			archive.AddEntry(ARCHIVE_NAMES, i);
+			archive.AddEntry(ARCHIVE_VALUES, m_priceHistory[i]);
+		}
+		return archive;
 	}
 }
