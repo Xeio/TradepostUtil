@@ -16,6 +16,7 @@ import com.Utils.ID32;
 import xeio.TradepostUtils;
 import com.GameInterface.Log;
 import com.GameInterface.LogBase;
+import com.Components.InventoryItemList.MCLItemInventoryItem;
 
 import com.GameInterface.Game.CharacterBase;
 import com.GameInterface.Inventory;
@@ -29,7 +30,10 @@ class TradepostUtil
 {    
 	private var m_swfRoot: MovieClip;
 	
+	var m_tradepostInventory:Inventory;
+	
 	var m_PromptSaleOriginal:Function;
+	var m_UpdateRightClickMenu:Function;
 	
 	public static function main(swfRoot:MovieClip):Void 
 	{
@@ -48,14 +52,47 @@ class TradepostUtil
 	
 	public function OnLoad()
 	{
-		setTimeout(Delegate.create(this, AutoSearch), 200);
+		m_tradepostInventory = new Inventory(new com.Utils.ID32(_global.Enums.InvType.e_Type_GC_TradepostContainer, Character.GetClientCharID().GetInstance()));
+		
+		setTimeout(Delegate.create(this, WireupMethods), 200);
 	}
 	
-	function AutoSearch()
+	function WireupMethods()
 	{
 		var buyView = _root.tradepost.m_Window.m_Content.m_ViewsContainer.m_BuyView;
+		
 		m_PromptSaleOriginal = Delegate.create(buyView, buyView.PromptSale);
 		buyView.PromptSale = Delegate.create(this, PromptSaleOverride);
+		
+		m_UpdateRightClickMenu = Delegate.create(buyView, buyView.UpdateRightClickMenu);
+		buyView.UpdateRightClickMenu = Delegate.create(this, UpdateRightClickMenuOverride);
+	}
+	
+	function UpdateRightClickMenuOverride(RightClickMode:Number, item:MCLItemInventoryItem, itemSlot:Number)
+	{
+		m_UpdateRightClickMenu(RightClickMode, item, itemSlot);
+		
+		var buyView = _root.tradepost.m_Window.m_Content.m_ViewsContainer.m_BuyView;
+		
+		if (RightClickMode == 1) //Right Click Sale
+		{
+			var dataProvider = buyView.m_RightClickMenu.dataProvider;
+			
+			var option:RightClickItem = new RightClickItem("Price Check", false, RightClickItem.LEFT_ALIGN);
+			option.SignalItemClicked.Connect(SearchOptionClickEventHandler, this);
+			dataProvider.push(option);
+			
+			buyView.m_RightClickMenu.dataProvider = dataProvider;
+		}
+	}
+	
+	function SearchOptionClickEventHandler()
+	{
+		var buyView = _root.tradepost.m_Window.m_Content.m_ViewsContainer.m_BuyView;
+		
+		var item = m_tradepostInventory.GetItemAt(buyView.m_CancelSaleSlot);
+		
+		SearchForItem(item);
 	}
 	
 	function PromptSaleOverride(inventoryID:ID32, slotID:Number)
@@ -65,6 +102,11 @@ class TradepostUtil
 		var currentInventory:Inventory = new Inventory(inventoryID);
 		var item:InventoryItem = currentInventory.GetItemAt(slotID);
 		
+		SearchForItem(item);
+	}
+	
+	function SearchForItem(item:InventoryItem)
+	{
 		var buyView = _root.tradepost.m_Window.m_Content.m_ViewsContainer.m_BuyView;
 		
 		buyView.m_SearchField.text = item.m_Name;
