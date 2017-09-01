@@ -204,7 +204,10 @@ class TradepostUtil
 		var currentInventory:Inventory = new Inventory(inventoryID);
 		var item:InventoryItem = currentInventory.GetItemAt(slotID);
 		
-		SearchForItem(item);
+		if (!DistributedValue.GetDValue("TradepostUtil_DisableAutoSearch"))
+		{
+			SearchForItem(item);
+		}
 	}
 	
 	function SearchForItem(item:InventoryItem)
