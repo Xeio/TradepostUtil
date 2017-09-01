@@ -17,6 +17,10 @@ class TradepostUtil
 	
 	static var ARCHIVE_NAMES:String = "PriceHistoryName";
 	static var ARCHIVE_VALUES:String = "PriceHistoryValue";
+	static var ARCHIVE_EXPIRATIONS:String = "PriceHistoryExpiration";
+	static var HOUR:Number = 60 * 60;
+	static var DAY:Number = HOUR * 24;
+	static var EXPIRE_TIMEOUT:Number = DAY * 3; // 3 days
 	
 	var m_tradepostInventory:Inventory;
 	
@@ -67,7 +71,9 @@ class TradepostUtil
 		
 		var currentInventory:Inventory = new Inventory(buyView.m_SellItemInventory);
 		var item:InventoryItem = currentInventory.GetItemAt(buyView.m_SellItemSlot);
-		m_priceHistory[item.m_Name] = price;
+		var priceRecord = GetOrAddRecord(item.m_Name);
+		priceRecord.price = price;
+		priceRecord.expire = GetNewExpireTime();
 		
 		buyView.SlotSellPromptResponse(price);
 	}
@@ -86,11 +92,35 @@ class TradepostUtil
 			newProvider.push(dataProvider.shift());
 			
 			var inventoryItem:InventoryItem = m_tradepostInventory.GetItemAt(itemSlot);
-			var originalPrice = m_priceHistory[inventoryItem.m_Name];
-			if (originalPrice)
+			var priceRecord = GetOrAddRecord(inventoryItem.m_Name);
+			
+			if (priceRecord.price > 0)
 			{
-				var option:RightClickItem = new RightClickItem("Price: " + Text.AddThousandsSeparator(originalPrice), true, RightClickItem.CENTER_ALIGN);
-				option.SignalItemClicked.Connect(SearchOptionClickEventHandler, this);
+				var option:RightClickItem = new RightClickItem("Price: " + Text.AddThousandsSeparator(priceRecord.price), true, RightClickItem.CENTER_ALIGN);
+				newProvider.push(option);
+			}
+			
+			if (priceRecord.expire > 0)
+			{
+				var timeTillExpire:Number = priceRecord.expire - (new Date()).getUTCSeconds();
+				var message:String;
+				if (timeTillExpire < 0)
+				{
+					message = "EXPIRED";
+				}
+				else if (timeTillExpire >= DAY)
+				{
+					message = "Expires in " + Math.round(timeTillExpire/DAY) + " day(s)";
+				}
+				else if (timeTillExpire >= HOUR)
+				{
+					message = "Expires in " + Math.round(timeTillExpire/HOUR) + " hour(s)";
+				}
+				else
+				{
+					message = "Expires soon";
+				}		
+				var option:RightClickItem = new RightClickItem(message, true, RightClickItem.CENTER_ALIGN);
 				newProvider.push(option);
 			}
 			
@@ -166,16 +196,42 @@ class TradepostUtil
 		}
 	}
 	
+	function GetNewExpireTime():Number
+	{
+		return (new Date()).getUTCSeconds() + EXPIRE_TIMEOUT;
+	}
+	
+	function GetOrAddRecord(itemName:String):Object
+	{
+		for (var i = 0; i < m_priceHistory.length; i++ )
+		{
+			if (m_priceHistory[i].name == itemName)
+			{
+				return m_priceHistory[i];
+			}
+		}
+		var newItem = new Object();
+		newItem.name = itemName;
+		newItem.price = 0;
+		newItem.expire = 0;
+		m_priceHistory.push(newItem);
+		return newItem;
+	}
+	
 	public function Activate(config: Archive)
 	{
 		var names:Array = config.FindEntryArray(ARCHIVE_NAMES);
 		var prices:Array = config.FindEntryArray(ARCHIVE_VALUES);
+		var expirations:Array = config.FindEntryArray(ARCHIVE_EXPIRATIONS);
 		m_priceHistory = new Array();
 		if (names && prices && names.length == prices.length)
 		{
 			for (var i = 0; i < names.length; i++ )
 			{
-				m_priceHistory[names[i]] = prices[i];
+				m_priceHistory[i] = new Object();
+				m_priceHistory[i].name = names[i];
+				m_priceHistory[i].price = prices[i];
+				m_priceHistory[i].expire = expirations[i] || 0;
 			}
 		}
 	}
@@ -183,10 +239,11 @@ class TradepostUtil
 	public function Deactivate(): Archive
 	{
 		var archive: Archive = new Archive();
-		for (var i in m_priceHistory)
+		for (var i = 0; i < m_priceHistory.length; i++ )
 		{
-			archive.AddEntry(ARCHIVE_NAMES, i);
-			archive.AddEntry(ARCHIVE_VALUES, m_priceHistory[i]);
+			archive.AddEntry(ARCHIVE_NAMES,  m_priceHistory[i].name);
+			archive.AddEntry(ARCHIVE_VALUES, m_priceHistory[i].price);
+			archive.AddEntry(ARCHIVE_EXPIRATIONS, m_priceHistory[i].expire);
 		}
 		return archive;
 	}
