@@ -8,8 +8,6 @@ import mx.utils.Delegate;
 import com.Utils.Archive;
 import com.Utils.ID32;
 import com.Components.InventoryItemList.MCLItemInventoryItem;
-import com.Components.BankItemSlot;
-
 import com.GameInterface.Inventory;
 import com.GameInterface.Game.Character;
 
@@ -17,9 +15,8 @@ class TradepostUtil
 {    
 	private var m_swfRoot: MovieClip;
 	
-	static var ARCHIVE_NAMES:String = "PriceHistoryName";
-	static var ARCHIVE_VALUES:String = "PriceHistoryValue";
-	static var ARCHIVE_EXPIRATIONS:String = "PriceHistoryExpiration";
+	static var ARCHIVE_VALUES:String = "PriceHistoryValues";
+	static var ARCHIVE_EXPIRATIONS:String = "PriceHistoryExpirations";
 	static var HOUR:Number = 60 * 60 * 1000;
 	static var DAY:Number = HOUR * 24;
 	static var EXPIRE_TIMEOUT:Number = DAY * 3; // 3 days
@@ -28,6 +25,7 @@ class TradepostUtil
 	
 	var m_PromptSaleOriginal:Function;
 	var m_UpdateRightClickMenuOriginal:Function;
+	var m_lastKnownPrice:Number;
 	
 	var m_priceHistory:Array;
 	
@@ -51,6 +49,7 @@ class TradepostUtil
 		m_tradepostInventory = new Inventory(new com.Utils.ID32(_global.Enums.InvType.e_Type_GC_TradepostContainer, Character.GetClientCharID().GetInstance()));
 		
 		m_tradepostInventory.SignalItemRemoved.Connect(SignalInventoryChange, this);
+		m_tradepostInventory.SignalItemAdded.Connect(SignalInventoryAdded, this);
 		
 		setTimeout(Delegate.create(this, WireupMethods), 200);
 		setTimeout(Delegate.create(this, ShowExpiredIcons), 200);
@@ -59,6 +58,7 @@ class TradepostUtil
 	public function OnUnload()
 	{
 		m_tradepostInventory.SignalItemRemoved.Disconnect(SignalInventoryChange, this);
+		m_tradepostInventory.SignalItemAdded.Disconnect(SignalInventoryAdded, this);
 		m_tradepostInventory = undefined;
 		
 		//Can't really undo the method wiring we've done easily, so just close the tradepost window
@@ -91,7 +91,7 @@ class TradepostUtil
 			var item:InventoryItem = saleSlots[i].GetData();
 			if (item)
 			{
-				var priceRecord = GetOrAddRecord(item.m_Name);
+				var priceRecord = m_priceHistory[i];
 				if (priceRecord.expire > 0 && priceRecord.expire - (new Date()).valueOf() < 0)
 				{
 					var x:MovieClip = slotMc.createEmptyMovieClip("m_U_ExpiredIndicator", slotMc.getNextHighestDepth());
@@ -105,6 +105,16 @@ class TradepostUtil
 		}
 	}
 	
+	function SignalInventoryAdded(inventoryID:com.Utils.ID32, itemPos:Number)
+	{
+		if (m_lastKnownPrice > 0)
+		{
+			m_priceHistory[itemPos].price = m_lastKnownPrice;
+			m_priceHistory[itemPos].expire = GetNewExpireTime();
+			m_lastKnownPrice = 0;
+		}
+	}
+	
 	function SignalInventoryChange()
 	{
 		ShowExpiredIcons();
@@ -114,11 +124,7 @@ class TradepostUtil
 	{
 		var buyView = _root.tradepost.m_Window.m_Content.m_ViewsContainer.m_BuyView;
 		
-		var currentInventory:Inventory = new Inventory(buyView.m_SellItemInventory);
-		var item:InventoryItem = currentInventory.GetItemAt(buyView.m_SellItemSlot);
-		var priceRecord = GetOrAddRecord(item.m_Name);
-		priceRecord.price = price;
-		priceRecord.expire = GetNewExpireTime();
+		m_lastKnownPrice = price;
 		
 		buyView.SlotSellPromptResponse(price);
 	}
@@ -136,8 +142,7 @@ class TradepostUtil
 			
 			newProvider.push(dataProvider.shift());
 			
-			var inventoryItem:InventoryItem = m_tradepostInventory.GetItemAt(itemSlot);
-			var priceRecord = GetOrAddRecord(inventoryItem.m_Name);
+			var priceRecord = m_priceHistory[itemSlot];			
 			
 			if (priceRecord.price > 0)
 			{
@@ -249,38 +254,16 @@ class TradepostUtil
 		return (new Date()).valueOf() + EXPIRE_TIMEOUT;
 	}
 	
-	function GetOrAddRecord(itemName:String):Object
-	{
-		for (var i = 0; i < m_priceHistory.length; i++ )
-		{
-			if (m_priceHistory[i].name == itemName)
-			{
-				return m_priceHistory[i];
-			}
-		}
-		var newItem = new Object();
-		newItem.name = itemName;
-		newItem.price = 0;
-		newItem.expire = 0;
-		m_priceHistory.push(newItem);
-		return newItem;
-	}
-	
 	public function Activate(config: Archive)
 	{
-		var names:Array = config.FindEntryArray(ARCHIVE_NAMES);
 		var prices:Array = config.FindEntryArray(ARCHIVE_VALUES);
 		var expirations:Array = config.FindEntryArray(ARCHIVE_EXPIRATIONS);
 		m_priceHistory = new Array();
-		if (names && prices && names.length == prices.length)
+		for (var i = 0; i < m_tradepostInventory.GetMaxItems(); i++ )
 		{
-			for (var i = 0; i < names.length; i++ )
-			{
-				m_priceHistory[i] = new Object();
-				m_priceHistory[i].name = names[i];
-				m_priceHistory[i].price = prices[i];
-				m_priceHistory[i].expire = expirations[i] || 0;
-			}
+			m_priceHistory.push(new Object());			
+			m_priceHistory[i].price = prices[i] || 0;
+			m_priceHistory[i].expire = expirations[i] || 0;
 		}
 	}
 	
@@ -289,9 +272,8 @@ class TradepostUtil
 		var archive: Archive = new Archive();
 		for (var i = 0; i < m_priceHistory.length; i++ )
 		{
-			archive.AddEntry(ARCHIVE_NAMES,  m_priceHistory[i].name);
-			archive.AddEntry(ARCHIVE_VALUES, m_priceHistory[i].price);
-			archive.AddEntry(ARCHIVE_EXPIRATIONS, m_priceHistory[i].expire);
+			archive.AddEntry(ARCHIVE_VALUES, m_priceHistory[i].price || 0);
+			archive.AddEntry(ARCHIVE_EXPIRATIONS, m_priceHistory[i].expire || 0);
 		}
 		return archive;
 	}
