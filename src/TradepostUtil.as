@@ -212,6 +212,8 @@ class TradepostUtil
 		buyView.m_UseExactNameCheckBox.selected = true;
 		
 		buyView.Search();
+		
+		buyView.m_UseExactNameCheckBox.selected = false;
 	}
 	
 	function FindItemType(item:InventoryItem) 
