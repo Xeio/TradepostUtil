@@ -1,5 +1,6 @@
 import com.Components.RightClickItem;
 import com.GameInterface.Chat;
+import com.GameInterface.DistributedValue;
 import com.GameInterface.InventoryItem;
 import com.GameInterface.Tradepost;
 import com.Utils.Text;
@@ -7,6 +8,7 @@ import mx.utils.Delegate;
 import com.Utils.Archive;
 import com.Utils.ID32;
 import com.Components.InventoryItemList.MCLItemInventoryItem;
+import com.Components.BankItemSlot;
 
 import com.GameInterface.Inventory;
 import com.GameInterface.Game.Character;
@@ -18,7 +20,7 @@ class TradepostUtil
 	static var ARCHIVE_NAMES:String = "PriceHistoryName";
 	static var ARCHIVE_VALUES:String = "PriceHistoryValue";
 	static var ARCHIVE_EXPIRATIONS:String = "PriceHistoryExpiration";
-	static var HOUR:Number = 60 * 60;
+	static var HOUR:Number = 60 * 60 * 1000;
 	static var DAY:Number = HOUR * 24;
 	static var EXPIRE_TIMEOUT:Number = DAY * 3; // 3 days
 	
@@ -48,7 +50,19 @@ class TradepostUtil
 	{
 		m_tradepostInventory = new Inventory(new com.Utils.ID32(_global.Enums.InvType.e_Type_GC_TradepostContainer, Character.GetClientCharID().GetInstance()));
 		
+		m_tradepostInventory.SignalItemRemoved.Connect(SignalInventoryChange, this);
+		
 		setTimeout(Delegate.create(this, WireupMethods), 200);
+		setTimeout(Delegate.create(this, ShowExpiredIcons), 200);
+	}
+	
+	public function OnUnload()
+	{
+		m_tradepostInventory.SignalItemRemoved.Disconnect(SignalInventoryChange, this);
+		m_tradepostInventory = undefined;
+		
+		//Can't really undo the method wiring we've done easily, so just close the tradepost window
+		DistributedValue.SetDValue("tradepost_window", false);
 	}
 	
 	function WireupMethods()
@@ -63,6 +77,37 @@ class TradepostUtil
 		
 		buyView.m_SellItemPromptWindow.SignalPromptResponse.Disconnect(buyView.SlotSellPromptResponse, buyView);
 		buyView.m_SellItemPromptWindow.SignalPromptResponse.Connect(SlotSellPromptResponse, this);
+	}
+	
+	function ShowExpiredIcons()
+	{
+		var buyView = _root.tradepost.m_Window.m_Content.m_ViewsContainer.m_BuyView;
+		
+		var saleSlots:Array = buyView.m_SaleItemSlotsArray;
+		for (var i = 0; i < saleSlots.length; i++)
+		{
+			var slotMc = saleSlots[i].m_SlotMC;
+			slotMc.m_U_ExpiredIndicator.removeMovieClip();
+			var item:InventoryItem = saleSlots[i].GetData();
+			if (item)
+			{
+				var priceRecord = GetOrAddRecord(item.m_Name);
+				if (priceRecord.expire > 0 && priceRecord.expire - (new Date()).valueOf() < 0)
+				{
+					var x:MovieClip = slotMc.createEmptyMovieClip("m_U_ExpiredIndicator", slotMc.getNextHighestDepth());
+					x.lineStyle(2, 0xFF0000);
+					x.moveTo(0, 0);
+					x.lineTo(slotMc._width, slotMc._height);
+					x.moveTo(slotMc._width, 0);
+					x.lineTo(0, slotMc._height);
+				}
+			}
+		}
+	}
+	
+	function SignalInventoryChange()
+	{
+		ShowExpiredIcons();
 	}
 	
 	function SlotSellPromptResponse(price:Number)
@@ -102,7 +147,8 @@ class TradepostUtil
 			
 			if (priceRecord.expire > 0)
 			{
-				var timeTillExpire:Number = priceRecord.expire - (new Date()).getUTCSeconds();
+				var timeTillExpire:Number = priceRecord.expire - (new Date()).valueOf();
+				
 				var message:String;
 				if (timeTillExpire < 0)
 				{
@@ -198,7 +244,7 @@ class TradepostUtil
 	
 	function GetNewExpireTime():Number
 	{
-		return (new Date()).getUTCSeconds() + EXPIRE_TIMEOUT;
+		return (new Date()).valueOf() + EXPIRE_TIMEOUT;
 	}
 	
 	function GetOrAddRecord(itemName:String):Object
