@@ -10,6 +10,7 @@ import com.Utils.ID32;
 import com.Components.InventoryItemList.MCLItemInventoryItem;
 import com.GameInterface.Inventory;
 import com.GameInterface.Game.Character;
+import com.Utils.LDBFormat;
 
 class TradepostUtil
 {    
@@ -219,10 +220,12 @@ class TradepostUtil
 		var itemType = FindItemType(item);
 		SetDropdownSelection(buyView.m_ItemTypeDropdownMenu, itemType, "idx");
 		buyView.m_UseExactNameCheckBox.selected = true;
+        SetDropdownSelection(buyView.m_RarityDropdownMenu, LDBFormat.LDBGetText("MiscGUI", "PowerLevel_" + item.m_Rarity), "idx");
 		
 		buyView.Search();
 		
 		buyView.m_UseExactNameCheckBox.selected = false;
+        SetDropdownSelection(buyView.m_RarityDropdownMenu, LDBFormat.LDBGetText("MiscGUI", "TradePost_Class_All"), "idx");
 	}
 	
 	function FindItemType(item:InventoryItem) 
