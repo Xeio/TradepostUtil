@@ -247,7 +247,8 @@ class TradepostUtil
 			var item = dropdown._dataProvider[i];
 			if (item[matchingProperty] == targetItem)
 			{
-				dropdown.selectedIndex = i;
+                dropdown.selectedIndex = i;
+                dropdown.dispatchEvent({type:"select"});
 			}
 		}
 	}
