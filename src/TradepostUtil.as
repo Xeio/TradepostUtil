@@ -113,6 +113,7 @@ class TradepostUtil
 			m_priceHistory[itemPos].expire = GetNewExpireTime();
 			m_lastKnownPrice = 0;
 		}
+		ShowExpiredIcons();
 	}
 	
 	function SignalInventoryChange()
@@ -233,7 +234,6 @@ class TradepostUtil
 				var subtype = Tradepost.m_TradepostItemTypes[type][i];
 				if (item.m_ItemTypeGUI == subtype)
 				{
-					
 					return type;
 				}
 			}
