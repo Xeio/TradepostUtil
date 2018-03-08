@@ -78,6 +78,8 @@ class TradepostUtil
 		
 		buyView.m_SellItemPromptWindow.SignalPromptResponse.Disconnect(buyView.SlotSellPromptResponse, buyView);
 		buyView.m_SellItemPromptWindow.SignalPromptResponse.Connect(SlotSellPromptResponse, this);
+        
+        buyView.m_ItemTypeDropdownMenu.dispatchEvent({type:"select"});
 	}
 	
 	function ShowExpiredIcons()
