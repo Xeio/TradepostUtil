@@ -221,6 +221,7 @@ class TradepostUtil
 		buyView.m_SearchField.text = item.m_Name;
 		var itemType = FindItemType(item);
 		SetDropdownSelection(buyView.m_ItemTypeDropdownMenu, itemType, "idx");
+        SetDropdownSelection(buyView.m_SubTypeDropdownMenu, LDBFormat.LDBGetText("MiscGUI", "TradePost_Class_All"), "idx");
 		buyView.m_UseExactNameCheckBox.selected = true;
         SetDropdownSelection(buyView.m_RarityDropdownMenu, LDBFormat.LDBGetText("MiscGUI", "PowerLevel_" + item.m_Rarity), "idx");
 		
