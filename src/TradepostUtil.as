@@ -1,5 +1,4 @@
 import com.Components.RightClickItem;
-import com.GameInterface.Chat;
 import com.GameInterface.DistributedValue;
 import com.GameInterface.InventoryItem;
 import com.GameInterface.Tradepost;
