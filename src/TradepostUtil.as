@@ -29,6 +29,9 @@ class TradepostUtil
     
     var m_priceHistory:Array;
     
+    var m_clipLoader:MovieClipLoader;
+    var m_clearTextButton:MovieClip;
+    
     public static function main(swfRoot:MovieClip):Void 
     {
         var tradepostUtil = new TradepostUtil(swfRoot);
@@ -46,13 +49,15 @@ class TradepostUtil
     
     public function OnLoad()
     {
+        m_clipLoader = new MovieClipLoader();
+        m_clipLoader.addListener(this);
+        
         m_tradepostInventory = new Inventory(new com.Utils.ID32(_global.Enums.InvType.e_Type_GC_TradepostContainer, Character.GetClientCharID().GetInstance()));
         
         m_tradepostInventory.SignalItemRemoved.Connect(SignalInventoryChange, this);
         m_tradepostInventory.SignalItemAdded.Connect(SignalInventoryAdded, this);
         
-        setTimeout(Delegate.create(this, WireupMethods), 200);
-        setTimeout(Delegate.create(this, ShowExpiredIcons), 200);
+        setTimeout(Delegate.create(this, WireupMethods), 50);
     }
     
     public function OnUnload()
@@ -63,11 +68,20 @@ class TradepostUtil
         
         //Can't really undo the method wiring we've done easily, so just close the tradepost window
         DistributedValue.SetDValue("tradepost_window", false);
+        
+        m_clipLoader.unloadClip(m_clearTextButton);
+        
+        m_clipLoader.removeListener(this);
     }
     
     function WireupMethods()
     {
         var buyView = _root.tradepost.m_Window.m_Content.m_ViewsContainer.m_BuyView;
+        if (!buyView)
+        {
+            setTimeout(Delegate.create(this, WireupMethods), 50);
+            return;
+        }
         
         m_PromptSaleOriginal = Delegate.create(buyView, buyView.PromptSale);
         buyView.PromptSale = Delegate.create(this, PromptSaleOverride);
@@ -79,6 +93,11 @@ class TradepostUtil
         buyView.m_SellItemPromptWindow.SignalPromptResponse.Connect(SlotSellPromptResponse, this);
         
         buyView.m_ItemTypeDropdownMenu.dispatchEvent({type:"select"});
+        
+        m_clearTextButton = buyView.createEmptyMovieClip("u_clearText", buyView.getNextHighestDepth());
+        m_clipLoader.loadClip("rdb:1000624:9306661", m_clearTextButton);
+        
+        ShowExpiredIcons();
     }
     
     function ShowExpiredIcons()
@@ -285,5 +304,26 @@ class TradepostUtil
             archive.AddEntry(ARCHIVE_EXPIRATIONS, m_priceHistory[i].expire || 0);
         }
         return archive;
+    }
+    
+    function onLoadComplete(target:MovieClip)
+    {
+        var widthHeight:Number = 22;
+        if (target == m_clearTextButton)
+        {
+            var searchField = _root.tradepost.m_Window.m_Content.m_ViewsContainer.m_BuyView.m_SearchField;
+            m_clearTextButton._x = searchField._x + searchField._width + 12;
+            m_clearTextButton._y = searchField._y;
+            m_clearTextButton._width = widthHeight;
+            m_clearTextButton._height = widthHeight;
+            
+            m_clearTextButton.onPress = Delegate.create(this, ClearText);
+        }
+    }
+    
+    function ClearText()
+    {
+        var searchField = _root.tradepost.m_Window.m_Content.m_ViewsContainer.m_BuyView.m_SearchField;
+        searchField.text = "";
     }
 }
