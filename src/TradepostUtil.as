@@ -229,6 +229,9 @@ class TradepostUtil
         if (!DistributedValue.GetDValue("TradepostUtil_DisableAutoSearch"))
         {
             SearchForItem(item);
+            
+            var buyView = _root.tradepost.m_Window.m_Content.m_ViewsContainer.m_BuyView;
+            buyView.m_SellItemPromptWindow.m_ItemCounter.TakeFocus();
         }
     }
     
